@@ -54,24 +54,14 @@ plotdot_ui <- function(id, dataset) {
 
 plotline_ui <- function(id, dataset) {
   box(title = "Injury", status = "primary", 
-         if (dataset == "subtype"){
-           plotlyOutput(NS(id, "bulkseq_lines"))
-         }, 
-         if (dataset == "mouse") {
-           plotlyOutput(NS(id, "mouse_lines"))
-         }
+      plotlyOutput(NS(id, "bulkseq_lines"))
   )
 }
 
 plotsubtype_ui <- function(id, dataset) {
   box(width = 12, 
       title = "Subtype Results", status = "primary", 
-         if (dataset == "subtype"){
-           plotlyOutput(NS(id, "bulkseq_lines_subtype"))
-         }, 
-         if (dataset == "mouse") {
-           plotlyOutput(NS(id, "mouse_lines_subtype"))
-         }
+      plotlyOutput(NS(id, "bulkseq_lines_subtype"))
   )
 }
 
@@ -119,6 +109,7 @@ shinyUI(fluidPage(
                          multiple = TRUE,
                          choices = NULL
                        ),
+                       
                        selectizeInput(
                          inputId = "sex", 
                          label = "Select Sex:", 
@@ -170,6 +161,7 @@ shinyUI(fluidPage(
       tabItems(
         tabItem(tabName="tabhome", 
                 #h4("Home"),
+                tableOutput("head"),
                 fluidRow(
                   # text summary for page
                   box(width=12,
@@ -191,7 +183,7 @@ shinyUI(fluidPage(
                 br(),
                 fluidRow(
                   box(status = "primary",
-                    width = 4, actionLink("link_to_subtype", "Browse DRG subpopulation RNAseq Data", icon=icon("dna"))
+                    width = 4, actionLink("link_to_subtype", "Browse DRG subpopulation RNAseq Data", icon=icon("mouse"))
                   ),
                   box(status = "primary",
                       width = 4, actionLink("link_to_mouse", "Browse Mouse Data")),
@@ -324,7 +316,8 @@ shinyUI(fluidPage(
                       selectInput("contrastm", "", 
                                  choices = c("B10D2_Mouse_SNI_vs_SHAM.csv", "BALBc_Mouse_SNI_vs_SHAM.csv"),
                                  selected = ""), 
-                      contrast_table_ui("mouse_contrast_table")
+                      contrast_table_ui("mouse_contrast_table"), 
+                      
                   )
                 )
                 
@@ -332,11 +325,34 @@ shinyUI(fluidPage(
         
         tabItem(tabName = "tabrat", 
                 actionButton("load4", "Plot Graphs"), # action button 
-                plotdot_ui("dot_rat")
+                actionLink("link_to_home3", "Back to Home", icon = icon("home")),
+                fluidRow(
+                  box(title = "Naive", status = "primary", 
+                      plotdot_ui("dot_rat")
+                  ), 
+                  plotline_ui("rat_line", "rat")), 
+                fluidRow(
+                  box(width = 10, 
+                      title = "Differential Gene Analysis",
+                      status = "primary",
+                      deg_plot_ui("deg_plot_rat"))
+                ), 
+                fluidRow(
+                  box(
+                    width = 12,
+                    title = "Result Table", 
+                    status = "primary",
+                    goi_table_ui("goi_table_rat")
+                  )
+                ), 
+                fluidRow(
+                  box(width = 12, 
+                      title = "Differential Analysis Table",
+                      status = "primary",
+                      DT::dataTableOutput("contrast_table_rat")
+                  )
+                )
         ),
-        
-       
-        
         ## Supply simple links for each paper + supplementary repository
         tabItem(tabName="tabcode",
                 h4("Data Access"),
