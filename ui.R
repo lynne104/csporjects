@@ -32,6 +32,10 @@ library(ggplot2)
 library(viridis)
 library("pacman")
 library("leaflet")
+library(gridExtra)
+library("cowplot")
+library("latticeExtra")
+library("plyr")
 
 
 # global variables 
@@ -48,8 +52,31 @@ subpopulations = c(
   "Ad- AB-RA LTMRs 4W" = "TBAC_4W.csv"
 )
 ### Modules
-plotdot_ui <- function(id, dataset) {
+plotdot_ui <- function(id, dataset, combined=FALSE) {
   plotlyOutput(NS(id, "bulkseq_dots"))
+
+}
+
+plotcombine_ui <- function(id) {
+  fluidRow(
+    column(width=2,
+           plotlyOutput(NS(id, "dot1"))),
+    column(width=4,
+           plotlyOutput(NS(id, "dot2"))),
+    column(width=6,
+           plotlyOutput(NS(id, "dot3")))
+  )
+}
+
+deg_combine_ui <- function(id) {
+  fluidRow(
+    column(width=2,
+           plotlyOutput(NS(id, "deg1"))),
+    column(width=4,
+           plotlyOutput(NS(id, "deg2"))),
+    column(width=6,
+           plotlyOutput(NS(id, "deg3")))
+  )
 }
 
 plotline_ui <- function(id, dataset) {
@@ -58,7 +85,7 @@ plotline_ui <- function(id, dataset) {
   )
 }
 
-plotsubtype_ui <- function(id, dataset) {
+plotsubtype_ui <- function(id, dataset=FALSE) {
   box(width = 12, 
       title = "Subtype Results", status = "primary", 
       plotlyOutput(NS(id, "bulkseq_lines_subtype"))
@@ -74,7 +101,7 @@ goi_table_ui <- function(id, dataset) {
 }
 
 volcano_plot_ui <- function(id) {
-  plotOutput(NS(id, "volcano"), 
+  plotOutput(NS(id, "volcano")
   )
 }
 
@@ -110,6 +137,8 @@ shinyUI(fluidPage(
                          choices = NULL
                        ),
                        
+                       textAreaInput("genes", "Search Genes:"),
+                       
                        selectizeInput(
                          inputId = "sex", 
                          label = "Select Sex:", 
@@ -121,7 +150,10 @@ shinyUI(fluidPage(
                        menuItem("Datasets", tabName = "tabdatasets", icon = icon("database"), 
                                 menuItem("DRG subpopulation RNAseq", tabName = "tabsubtype", icon=icon("dna")),
                                 menuItem("Mouse data", tabName = "tabmouse", icon=icon("frog")), 
-                                menuItem("Rat data", tabName = "tabrat", icon=icon("frog"))
+                                menuItem("Rat data", tabName = "tabrat", icon=icon("frog")), 
+                                menuItem("Human data", tabName = "tabhuman", icon=icon("frog")),
+                                menuItem("Diabetes Skin data", tabName = "tabdb", icon=icon("frog")),
+                                menuItem("Skin CTS data", tabName = "tabcts", icon=icon("frog"))
                                 ),
                        
                        menuItem("User Guide + Data", tabName = "tabcode", icon = icon("folder-open")),
@@ -183,18 +215,30 @@ shinyUI(fluidPage(
                 br(),
                 fluidRow(
                   box(status = "primary",
-                    width = 4, actionLink("link_to_subtype", "Browse DRG subpopulation RNAseq Data", icon=icon("mouse"))
+                    width = 2, actionLink("link_to_subtype", "Browse Subtype Data")
                   ),
                   box(status = "primary",
-                      width = 4, actionLink("link_to_mouse", "Browse Mouse Data")),
+                      width = 2, actionLink("link_to_mouse", "Browse Mouse Data")),
                   box(status = "primary",
-                      width = 4, actionLink("link_to_rat", "Browse Rat Data"))
+                      width = 2, actionLink("link_to_rat", "Browse Rat Data")), 
+                  box(status = "primary",
+                      width = 2, actionLink("link_to_human", "Browse iPSC Data")
+                  ), 
+                  box(status = "primary",
+                      width = 2, actionLink("link_to_db", "Browse Diabetes Data")
+                  ), 
+                  box(status = "primary",
+                      width = 2, actionLink("link_to_cts", "Browse CTS Data")
+                  )
                 ),
                 
                 fluidRow(
                   column(3,offset = 0, 
                          actionButton("load", "Plot Graphs"), br()
                          ), 
+                  column(3,offset = 0, 
+                         actionButton("textload", "Plot Graphs"), br()
+                  ), 
                   br()
                 ),
                 
@@ -206,15 +250,15 @@ shinyUI(fluidPage(
                                      Interactive queries for hypothesis testing with FDR and log2 fold 
                                      change (LFC) details are linked below.")
                   ),
-                  box(width = 10,
+                  box(width = 12,
                       title = "Naive",
                       status = "primary",
-                      plotdot_ui("dot")
+                      plotcombine_ui("dot")
                   ),
-                  box(width = 10, 
+                  box(width = 12, 
                       title = "Differential Gene Analysis",
                       status = "primary",
-                      deg_plot_ui("deg_plot"))
+                      deg_combine_ui("deg_plot"))
                 )
                 
                 
@@ -238,7 +282,7 @@ shinyUI(fluidPage(
                 fluidRow(
                   box(title = "Naive",
                       status = "primary", 
-                         plotdot_ui("dot_subtype")
+                         plotdot_ui("dot_subtype", FALSE)
                   ), 
                   plotline_ui("line", "subtype"),
                   plotsubtype_ui("lines_subtype", "subtype"), 
@@ -285,7 +329,7 @@ shinyUI(fluidPage(
                 br(),br(),
                 fluidRow(
                   box(title = "Naive", status = "primary", 
-                      plotdot_ui("dot_mouse")
+                      plotdot_ui("dot_mouse", FALSE)
                   ),
                   
                   plotline_ui("mouse_line", "mouse"),
@@ -316,7 +360,7 @@ shinyUI(fluidPage(
                       selectInput("contrastm", "", 
                                  choices = c("B10D2_Mouse_SNI_vs_SHAM.csv", "BALBc_Mouse_SNI_vs_SHAM.csv"),
                                  selected = ""), 
-                      contrast_table_ui("mouse_contrast_table"), 
+                      contrast_table_ui("mouse_contrast_table")
                       
                   )
                 )
@@ -328,14 +372,19 @@ shinyUI(fluidPage(
                 actionLink("link_to_home3", "Back to Home", icon = icon("home")),
                 fluidRow(
                   box(title = "Naive", status = "primary", 
-                      plotdot_ui("dot_rat")
+                      plotdot_ui("dot_rat", FALSE)
                   ), 
                   plotline_ui("rat_line", "rat")), 
                 fluidRow(
-                  box(width = 10, 
+                  box(width = 6, 
                       title = "Differential Gene Analysis",
                       status = "primary",
-                      deg_plot_ui("deg_plot_rat"))
+                      deg_plot_ui("deg_plot_rat")), 
+                  box(width=6,
+                    title = "SHAM vs SNT", status = "primary", 
+                    actionButton("volcrat", "Plot Volcano Graphs"),
+                    volcano_plot_ui("volcano_rat")
+                  )
                 ), 
                 fluidRow(
                   box(
@@ -353,6 +402,131 @@ shinyUI(fluidPage(
                   )
                 )
         ),
+        
+        tabItem(tabName = "tabhuman", 
+                actionButton("load5", "Plot Graphs"), # action button 
+                actionLink("link_to_home4", "Back to Home", icon = icon("home")),
+                fluidRow(
+                  box(title = "Naive", status = "primary", 
+                      plotdot_ui("dot_human", FALSE)
+                  ), 
+                  plotline_ui("human_line", "human")), 
+                fluidRow(
+                  box(width = 6, 
+                      title = "Differential Gene Analysis",
+                      status = "primary",
+                      deg_plot_ui("deg_plot_human")), 
+                  box(width = 6,
+                    title = "Healthy vs HSN1", status = "primary", 
+                    actionButton("volch", "Plot Volcano Graphs"),
+                    selectInput("volcahuman", "", 
+                                choices = c("iPSCDN_young_HSN1_vs_healthy.csv", "iPSCDN_old_HSN1_vs_healthy.csv"),
+                                selected = ""),
+                    volcano_plot_ui("volcano_human")
+                  )
+                ), 
+                fluidRow(
+                  box(
+                    width = 12,
+                    title = "Result Table", 
+                    status = "primary",
+                    goi_table_ui("goi_table_human")
+                  )
+                ), 
+                fluidRow(
+                  box(
+                    width = 12,
+                    title = "Differential Analysis Table", 
+                    status = "primary", 
+                    selectInput("contrasth", "", 
+                                choices = c("iPSCDN_old_HSN1_vs_healthy.csv", "iPSCDN_young_HSN1_vs_healthy.csv"),
+                                selected = ""), 
+                    contrast_table_ui("contrast_table_human")
+                  )
+                )
+        ),
+        
+        tabItem(tabName = "tabdb", 
+                actionButton("load6", "Plot Graphs"), # action button 
+                actionLink("link_to_home5", "Back to Home", icon = icon("home")),
+                fluidRow(
+                  box(title = "Naive", status = "primary", 
+                      plotdot_ui("dot_db", FALSE)
+                  ), 
+                  plotline_ui("db_line", "skin")), 
+                fluidRow(
+                  box(width = 6, 
+                      title = "Differential Gene Analysis",
+                      status = "primary",
+                      deg_plot_ui("deg_plot_db")), 
+                  box(width = 6,
+                      title = "Painful vs Painless", status = "primary", 
+                      actionButton("volcd", "Plot Volcano Graphs"),
+                      selectInput("volcadb", "", 
+                                  choices = c("Diabetes_skin_painful_vs_painless.csv", "Diabetes_skin_painful_vs_painless_females.csv", 
+                                              "Diabetes_skin_painful_vs_painless_males.csv"),
+                                  selected = ""),
+                      volcano_plot_ui("volcano_db")
+                  )
+                ), 
+                fluidRow(
+                  box(
+                    width = 12,
+                    title = "Result Table", 
+                    status = "primary",
+                    goi_table_ui("goi_table_db")
+                  )
+                ), 
+                fluidRow(
+                  box(
+                    width = 12,
+                    title = "Differential Analysis Table", 
+                    status = "primary", 
+                    selectInput("contrastd", "", 
+                                choices = c("Diabetes_skin_painful_vs_painless.csv", "Diabetes_skin_painful_vs_painless_females.csv", 
+                                            "Diabetes_skin_painful_vs_painless_males.csv"),
+                                selected = ""), 
+                    contrast_table_ui("contrast_table_db")
+                  )
+                )
+        ),
+        
+        tabItem(tabName = "tabcts", 
+                actionButton("load7", "Plot Graphs"), # action button 
+                actionLink("link_to_home6", "Back to Home", icon = icon("home")),
+                fluidRow(
+                  box(title = "Naive", status = "primary", 
+                      plotdot_ui("dot_cts", FALSE)
+                  ), 
+                  plotline_ui("cts_line", "skin")), 
+                fluidRow(
+                  box(width = 6, 
+                      title = "Differential Gene Analysis",
+                      status = "primary",
+                      deg_plot_ui("deg_plot_cts")), 
+                  box(width = 6,
+                      title = "Painful vs Painless", status = "primary", 
+                      actionButton("volcc", "Plot Volcano Graphs"),
+                      volcano_plot_ui("volcano_cts")
+                  )
+                ), 
+                fluidRow(
+                  box(
+                    width = 12,
+                    title = "Result Table", 
+                    status = "primary",
+                    goi_table_ui("goi_table_cts")
+                  )
+                ), 
+                fluidRow(
+                  box(width = 12, 
+                      title = "Differential Analysis Table",
+                      status = "primary",
+                      DT::dataTableOutput("contrast_table_cts")
+                  )
+                )
+        ),
+        
         ## Supply simple links for each paper + supplementary repository
         tabItem(tabName="tabcode",
                 h4("Data Access"),
