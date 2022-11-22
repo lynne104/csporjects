@@ -134,15 +134,15 @@ plotcombine_server <- function(id, df, sex) {
     
     g1 = ggplot(df_rat, aes(x= Population, y = symbol)) + scale_colour_viridis_c(option = "magma", end = .90) +
       scale_fill_continuous(limits=c(-10,10)) + scale_size_continuous(limits=c(-10,10)) +
-      geom_point(aes(col=expression, size=expression)) + thc + guides(col = FALSE, size = FALSE) +
+      geom_point(aes(col=log(expression), size=log(expression))) + thc + guides(col = FALSE, size = FALSE) +
       facet_grid(.~Dataset, scale = "free", space='free') + ggtitle("Rat (DRG)")
     g2 = ggplot(df_human, aes(x= Population, y = symbol)) + scale_colour_viridis_c(option = "magma", end = .90) +
       scale_fill_continuous(limits=c(-10,10)) + 
-      geom_point(aes(col=expression, size=expression)) + thc + guides(col = FALSE, size = FALSE) +
+      geom_point(aes(col=log(expression), size=log(expression))) + thc + guides(col = FALSE, size = FALSE) +
       facet_grid(.~Dataset, scale = "free", space='free') + ggtitle("Human")
     g3 = ggplot(df_mouse, aes(x= Population, y = symbol)) + scale_colour_viridis_c(option = "magma", end = .90) +
       scale_fill_continuous(limits=c(-10,10)) +
-      geom_point(aes(col=expression, size=expression)) + thc + guides(size = FALSE) +
+      geom_point(aes(col=log(expression), size=log(expression))) + thc + guides(size = FALSE) +
       facet_grid(.~Dataset, scale = "free", space='free') + ggtitle("Mouse (DRG)") + 
       scale_x_discrete(labels=population_labels) + labs(col="log(TPM)", size = "")
     
@@ -169,7 +169,9 @@ plotcombine_server <- function(id, df, sex) {
       content = function(file) {
         p <- grid.arrange(g1,g2,g3,ncol=3, widths = c(2,4,6))
         ggsave(p, filename = file, width = 10, height = 4, dpi = 300, units = "in", device='png')
-      })
+      }
+      
+      )
     
     
   })
@@ -200,7 +202,7 @@ plotdot_server <- function(id, df, sex) {
     tcounts_med = df
     g = ggplot(data = tcounts_med, aes(x= Population, y = symbol)) + 
       scale_colour_viridis_c(option = "magma", end = .90) +
-      geom_point(aes(col=expression, size=expression)) + th + 
+      geom_point(aes(col=log(expression), size=log(expression))) + th + 
       facet_grid(.~Dataset, scales = "free", space="free") + 
       scale_x_discrete(labels=population_labels)
     
@@ -373,7 +375,7 @@ shinyServer(function(input, output, session) {
   updateSelectizeInput(session, 
                        inputId = "geneid", 
                        label = "Search Genes:",
-                       choices = logTPM_subtype[,80], 
+                       choices = TPM_subtype[,80], 
                        server = TRUE,
                        selected = "Atf3"
   ) 
@@ -525,7 +527,7 @@ shinyServer(function(input, output, session) {
       req(input$file)
       goi = read.table(input$file$datapath)
       rownames(goi) <- goi[,1]
-      goi <- goi[which(rownames(goi) %in% logTPM_subtype[,80]==TRUE),]
+      goi <- goi[which(rownames(goi) %in% TPM_subtype[,80]==TRUE),]
       return(goi)
     })
     
@@ -538,25 +540,25 @@ shinyServer(function(input, output, session) {
     }
     
     data1 <- reactive({
-      logTPM_mouse[logTPM_mouse[,21] %in% genes,]
+      TPM_mouse[TPM_mouse[,21] %in% genes,]
     }) 
     data2 <- reactive({
-      logTPM_subtype[logTPM_subtype[,80] %in% genes,]
+      TPM_subtype[TPM_subtype[,80] %in% genes,]
     })
     data3 <- reactive({
-      logTPM_rat[logTPM_rat[,9] %in% genes,]
+      TPM_rat[TPM_rat[,9] %in% genes,]
     })
     
     data4 <- reactive({
-      logTPM_ipsc[logTPM_ipsc[,30] %in% genes,]
+      TPM_ipsc[TPM_ipsc[,30] %in% genes,]
     })
     
     data5 <- reactive({
-      logTPM_HS_CTS[logTPM_HS_CTS[,96] %in% genes,]
+      TPM_HS_CTS[TPM_HS_CTS[,96] %in% genes,]
     })
     
     data6 <- reactive({
-      logTPM_HS_diabetes[logTPM_HS_diabetes[,108] %in% genes,]
+      TPM_HS_diabetes[TPM_HS_diabetes[,108] %in% genes,]
     })
     
     df_mouse = preprocess(reactive({data1()}), 20, "SNI", TPM_mouse_colData, input$sex, "mouse", "dot")
@@ -598,7 +600,7 @@ shinyServer(function(input, output, session) {
       req(input$file)
       goi = read.table(input$file$datapath)
       rownames(goi) <- goi[,1]
-      goi <- goi[which(rownames(goi) %in% logTPM_subtype[,80]==TRUE),]
+      goi <- goi[which(rownames(goi) %in% TPM_subtype[,80]==TRUE),]
       return(goi)
     })
     if (is.null(input$file)) {
@@ -608,7 +610,7 @@ shinyServer(function(input, output, session) {
       genes = dataf()
     }
     data <- reactive({
-      logTPM_subtype[logTPM_subtype[,80] %in% genes,]
+      TPM_subtype[TPM_subtype[,80] %in% genes,]
     }) %>% bindCache(genes)
     data2 <- reactive({
       bulkseq_mat[bulkseq_mat[,155] %in% genes,]
@@ -640,7 +642,7 @@ shinyServer(function(input, output, session) {
       req(input$file)
       goi = read.table(input$file$datapath)
       rownames(goi) <- goi[,1]
-      goi <- goi[which(rownames(goi) %in% logTPM_subtype[,80]==TRUE),]
+      goi <- goi[which(rownames(goi) %in% TPM_subtype[,80]==TRUE),]
       return(goi)
     })
     if (is.null(input$file)) {
@@ -650,7 +652,7 @@ shinyServer(function(input, output, session) {
       genes = dataf()
     }
     data <- reactive({
-      logTPM_mouse[logTPM_mouse[,21] %in% genes,]
+      TPM_mouse[TPM_mouse[,21] %in% genes,]
     }) %>% bindCache(genes)
     plotdot_server("dot_mouse", preprocess(reactive({data()}), 20, "SNI", TPM_mouse_colData, input$sex, "mouse", "dot"), input$sex) 
     plotline_server("mouse_line", preprocess(reactive({data()}), 20, "SNI", TPM_mouse_colData, input$sex, "mouse", "line"), input$sex, "mouse") 
@@ -670,7 +672,7 @@ shinyServer(function(input, output, session) {
       req(input$file)
       goi = read.table(input$file$datapath)
       rownames(goi) <- goi[,1]
-      goi <- goi[which(rownames(goi) %in% logTPM_subtype[,80]==TRUE),]
+      goi <- goi[which(rownames(goi) %in% TPM_subtype[,80]==TRUE),]
       return(goi)
     })
     if (is.null(input$file)) {
@@ -680,7 +682,7 @@ shinyServer(function(input, output, session) {
       genes = dataf()
     }
     data <- reactive({
-      logTPM_rat[logTPM_rat[,9] %in% genes,]
+      TPM_rat[TPM_rat[,9] %in% genes,]
     })
     plotdot_server("dot_rat", preprocess(reactive({data()}), 8, "SNT", TPM_rat_colData, input$sex, "rat", "dot"),input$sex)
     plotline_server("rat_line", preprocess(reactive({data()}), 8, "SNT", TPM_rat_colData, input$sex, "rat", "line"), input$sex, "rat")
@@ -701,7 +703,7 @@ shinyServer(function(input, output, session) {
       req(input$file)
       goi = read.table(input$file$datapath)
       rownames(goi) <- goi[,1]
-      goi <- goi[which(rownames(goi) %in% logTPM_subtype[,80]==TRUE),]
+      goi <- goi[which(rownames(goi) %in% TPM_subtype[,80]==TRUE),]
       return(goi)
     })
     if (is.null(input$file)) {
@@ -711,7 +713,7 @@ shinyServer(function(input, output, session) {
       genes = dataf()
     }
     data <- reactive({
-      logTPM_ipsc[logTPM_ipsc[,30] %in% genes,]
+      TPM_ipsc[TPM_ipsc[,30] %in% genes,]
     })
     plotdot_server("dot_human", preprocess(reactive({data()}), 28, "patient", ipsc_colData, input$sex, "iPSC_SN", "dot"),input$sex)
     plotline_server("human_line", preprocess(reactive({data()}), 28, "patient", ipsc_colData, input$sex, "iPSC_SN", "line"), input$sex, "iPSC_SN")
@@ -733,7 +735,7 @@ shinyServer(function(input, output, session) {
       req(input$file)
       goi = read.table(input$file$datapath)
       rownames(goi) <- goi[,1]
-      goi <- goi[which(rownames(goi) %in% logTPM_subtype[,80]==TRUE),]
+      goi <- goi[which(rownames(goi) %in% TPM_subtype[,80]==TRUE),]
       return(goi)
     })
     if (is.null(input$file)) {
@@ -743,7 +745,7 @@ shinyServer(function(input, output, session) {
       genes = dataf()
     }
     data <- reactive({
-      logTPM_HS_diabetes[logTPM_HS_diabetes[,108] %in% genes,]
+      TPM_HS_diabetes[TPM_HS_diabetes[,108] %in% genes,]
     })
     
     plotdot_server("dot_db", preprocess(reactive({data()}), 106, "PDPN", db_colData, input$sex, "skin", "dot"),input$sex)
@@ -766,7 +768,7 @@ shinyServer(function(input, output, session) {
       req(input$file)
       goi = read.table(input$file$datapath)
       rownames(goi) <- goi[,1]
-      goi <- goi[which(rownames(goi) %in% logTPM_subtype[,80]==TRUE),]
+      goi <- goi[which(rownames(goi) %in% TPM_subtype[,80]==TRUE),]
       return(goi)
     })
     if (is.null(input$file)) {
@@ -776,7 +778,7 @@ shinyServer(function(input, output, session) {
       genes = dataf()
     }
     data <- reactive({
-      logTPM_HS_CTS[logTPM_HS_CTS[,96] %in% genes,]
+      TPM_HS_CTS[TPM_HS_CTS[,96] %in% genes,]
     })
     
     plotdot_server("dot_cts", preprocess(reactive({data()}), 94, "pre_Surgery", skin_colData, input$sex, "skin", "dot"),input$sex)
