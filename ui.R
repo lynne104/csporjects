@@ -11,6 +11,7 @@
 #rsconnect::deployApp()
 #setRepositories(addURLs = c(BioC = "https://bioconductor.org/packages/3.15/bioc"))
 # library(Seurat)
+
 library(shiny)
 library(data.table)
 library(shinythemes)
@@ -36,6 +37,7 @@ library(gridExtra)
 library("cowplot")
 library("latticeExtra")
 library("plyr")
+library(shinymanager)
 
 
 # global variables 
@@ -59,23 +61,17 @@ plotdot_ui <- function(id, dataset, combined=FALSE) {
 
 plotcombine_ui <- function(id) {
   fluidRow(
-    column(width=2,
-           plotlyOutput(NS(id, "dot1"))),
-    column(width=4,
-           plotlyOutput(NS(id, "dot2"))),
-    column(width=6,
-           plotlyOutput(NS(id, "dot3")))
+    column(12, 
+           downloadButton(NS(id,"downloadDot"), "Download"),
+           plotOutput(NS(id,"dot")))
   )
 }
 
 deg_combine_ui <- function(id) {
   fluidRow(
-    column(width=2,
-           plotlyOutput(NS(id, "deg1"))),
-    column(width=4,
-           plotlyOutput(NS(id, "deg2"))),
-    column(width=6,
-           plotlyOutput(NS(id, "deg3")))
+    column(12, 
+           downloadButton(NS(id,"downloadDeg"), "Download"),
+           plotOutput(NS(id,"deg")))
   )
 }
 
@@ -109,8 +105,10 @@ contrast_table_ui <- function(id) {
   DT::dataTableOutput(NS(id, "contrast_table"))
 }
 
+
 ### IU 
-shinyUI(fluidPage(
+ui = function(req) {fluidPage(
+  
   
   #CSS style sheet
   includeCSS("www/style.css"),
@@ -137,8 +135,16 @@ shinyUI(fluidPage(
                          choices = NULL
                        ),
                        
-                       textAreaInput("genes", "Search Genes:"),
-                       
+                       fileInput("file", 
+                                 label = "Upload File:",
+                                 accept = c(
+                                 'text/csv',
+                                 'text/comma-separated-values',
+                                 'text/tab-separated-values',
+                                 'text/plain',
+                                 '.csv', '.txt',
+                                 '.tsv')), 
+                      
                        selectizeInput(
                          inputId = "sex", 
                          label = "Select Sex:", 
@@ -195,6 +201,7 @@ shinyUI(fluidPage(
                 #h4("Home"),
                 tableOutput("head"),
                 fluidRow(
+                  tableOutput("contents"),
                   # text summary for page
                   box(width=12,
                       status = "primary", 
@@ -236,9 +243,6 @@ shinyUI(fluidPage(
                   column(3,offset = 0, 
                          actionButton("load", "Plot Graphs"), br()
                          ), 
-                  column(3,offset = 0, 
-                         actionButton("textload", "Plot Graphs"), br()
-                  ), 
                   br()
                 ),
                 
@@ -252,7 +256,7 @@ shinyUI(fluidPage(
                   ),
                   box(width = 12,
                       title = "Naive",
-                      status = "primary",
+                      status = "primary", 
                       plotcombine_ui("dot")
                   ),
                   box(width = 12, 
@@ -306,6 +310,7 @@ shinyUI(fluidPage(
                     status = "primary", 
                     includeMarkdown("datatable_notes.Rmd"),
                     downloadButton("downloadData", "Download"),
+                    br(),
                     goi_table_ui("goi_table", "subtype")
                   )
                 ),
@@ -562,4 +567,6 @@ shinyUI(fluidPage(
     )  #mainpanel dashboardbody close
   ) # dashboad page close
 ) #fluid page
-)#ui
+}#ui
+
+# ui = secure_app(ui)
