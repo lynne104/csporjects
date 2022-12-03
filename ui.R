@@ -10,8 +10,7 @@
 
 #rsconnect::deployApp()
 #setRepositories(addURLs = c(BioC = "https://bioconductor.org/packages/3.15/bioc"))
-# library(Seurat)
-
+library(cowplot)
 library(shiny)
 library(data.table)
 library(shinythemes)
@@ -35,9 +34,11 @@ library("pacman")
 library("leaflet")
 library(gridExtra)
 library("cowplot")
-library("latticeExtra")
 library("plyr")
 library(shinymanager)
+library("fontawesome")
+library(Seurat)
+library("shinyWidgets")
 
 
 # global variables 
@@ -59,11 +60,33 @@ plotdot_ui <- function(id, dataset, combined=FALSE) {
 
 }
 
+plotscdot_ui <- function(id) {
+  plotlyOutput(NS(id, "scrna_dots"))
+}
+
+plotfeature_ui <- function(id) {
+  plotOutput(NS(id, "scrna_feature"))
+}
+
+plotumap_ui <- function(id) {
+  plotlyOutput(NS(id, "scrna_umap"))
+}
+
+plothomescdot_ui <- function(id, dataset, combined=FALSE) {
+  fluidRow(
+    column(3,
+           downloadButton(NS(id,"downloadscDot"), "Download")),
+    column(10, offset = 1, 
+           plotOutput(NS(id, "home_scrna_dots")))
+  )
+}
+
 plotcombine_ui <- function(id) {
   fluidRow(
     column(12, 
            downloadButton(NS(id,"downloadDot"), "Download"),
-           plotOutput(NS(id,"dot")))
+           plotOutput(NS(id,"dot"))
+           )
   )
 }
 
@@ -77,14 +100,14 @@ deg_combine_ui <- function(id) {
 
 plotline_ui <- function(id, dataset) {
   box(title = "Injury", status = "primary", 
-      plotlyOutput(NS(id, "bulkseq_lines"))
+      plotOutput(NS(id, "bulkseq_lines"))
   )
 }
 
 plotsubtype_ui <- function(id, dataset=FALSE) {
   box(width = 12, 
       title = "Subtype Results", status = "primary", 
-      plotlyOutput(NS(id, "bulkseq_lines_subtype"))
+      plotOutput(NS(id, "bulkseq_lines_subtype"))
   )
 }
 
@@ -106,18 +129,15 @@ contrast_table_ui <- function(id) {
 }
 
 
-### IU 
 ui = function(req) {fluidPage(
   
-  
-  #CSS style sheet
   includeCSS("www/style.css"),
   
   shinyFeedback::useShinyFeedback(),
   
-  # UI built with shiny dashboard, requires boxes/columns in tabItems 
   dashboardPage(
-    dashboardHeader(title="DRG Directory", titleWidth = 225),
+    dashboardHeader(title="DRG Directory", titleWidth = 225
+                    ),
     dashboardSidebar(width = 225,
                      sidebarMenu(
                        id = "tabs",
@@ -144,6 +164,7 @@ ui = function(req) {fluidPage(
                                  'text/plain',
                                  '.csv', '.txt',
                                  '.tsv')), 
+                       actionButton("reset", "Clear"),
                       
                        selectizeInput(
                          inputId = "sex", 
@@ -154,12 +175,13 @@ ui = function(req) {fluidPage(
                        # sidebar menu for tabs (pages)    
                        menuItem("Home", tabName = "tabhome", icon = icon("home")),
                        menuItem("Datasets", tabName = "tabdatasets", icon = icon("database"), 
-                                menuItem("DRG subpopulation RNAseq", tabName = "tabsubtype", icon=icon("dna")),
-                                menuItem("Mouse data", tabName = "tabmouse", icon=icon("frog")), 
-                                menuItem("Rat data", tabName = "tabrat", icon=icon("frog")), 
-                                menuItem("Human data", tabName = "tabhuman", icon=icon("frog")),
-                                menuItem("Diabetes Skin data", tabName = "tabdb", icon=icon("frog")),
-                                menuItem("Skin CTS data", tabName = "tabcts", icon=icon("frog"))
+                                menuItem("Mouse DRG Subtype data", tabName = "tabsubtype"),
+                                menuItem("Mouse DRG Bulk data", tabName = "tabmouse"), 
+                                menuItem("Rat DRG data", tabName = "tabrat"), 
+                                menuItem("Human iPSC data", tabName = "tabhuman"),
+                                menuItem("Human Diabetes Skin data", tabName = "tabdb"),
+                                menuItem("Human Skin CTS data", tabName = "tabcts"), 
+                                menuItem("Spatial Seq data", tabName = "tabspat")
                                 ),
                        
                        menuItem("User Guide + Data", tabName = "tabcode", icon = icon("folder-open")),
@@ -199,7 +221,6 @@ ui = function(req) {fluidPage(
       tabItems(
         tabItem(tabName="tabhome", 
                 #h4("Home"),
-                tableOutput("head"),
                 fluidRow(
                   tableOutput("contents"),
                   # text summary for page
@@ -208,38 +229,64 @@ ui = function(req) {fluidPage(
                       solidHeader = TRUE,
                       #height = 275,
                       title = "Overview",
-                      p("This database provides an interface to explore murine -omics datasets. 
-                                  Deep RNA-seq of mouse DRG subpopulations after spare nerve injury (SNI) was performed 
-                                  to interrogate subtype-specific and shared injury signatures. 
-                                  Specific transgenic details and methodologies will be available in the published reports, 
-                                  and are currently available by request. 
-                                  All work presented here is currently unpublished, and is the work of Ali Barry, 
-                                  Giorgos Baskozos, and Dave Bennett at the University of Oxford (NDCN).
-                                Full descriptions and relevant citations can be found in the 'Dataset' tab.  
-                                ")
+                      p("This database provides an interface to explore murine -omics datasets.
+                        Full descriptions and project-specific analyses are highlighed in the 'Datasets' tab.
+                        All results are plotted as median transcripts per million (TPM).
+                        Search result data for each dataset is available for download
+                        on their respective pages (see: Datasets). All raw data is available
+                        on GEO. Hypothesis testing with FDR < 0.05 and log2 fold
+                        change (LFC) > 1.
+                        ")
                   )
                 ), #fluidrow
                 br(),
                 fluidRow(
                   box(status = "primary",
-                    width = 2, actionLink("link_to_subtype", "Browse Subtype Data")
-                  ),
-                  box(status = "primary",
-                      width = 2, actionLink("link_to_mouse", "Browse Mouse Data")),
-                  box(status = "primary",
-                      width = 2, actionLink("link_to_rat", "Browse Rat Data")), 
-                  box(status = "primary",
-                      width = 2, actionLink("link_to_human", "Browse iPSC Data")
-                  ), 
-                  box(status = "primary",
-                      width = 2, actionLink("link_to_db", "Browse Diabetes Data")
-                  ), 
-                  box(status = "primary",
-                      width = 2, actionLink("link_to_cts", "Browse CTS Data")
-                  )
+                      width = 12, 
+                      title = "Dataset Overview",
+                      column(width = 10, 
+                             includeHTML("/Users/lynnezhao/Desktop/table.html")
+                             ),
+                      column(width = 2,
+                             br(),br(),
+                             box(status="primary", width = 12,
+                               actionLink("link_to_subtype", "Browse Subtype Data")
+                             )
+                             ),
+                      column(width = 2,
+                             box( status = "primary", width = 12,
+                                  actionLink("link_to_mouse", "Browse Mouse Bulk Data")
+                             )),
+                      column(width = 2,
+                             box(status = "primary", width = 12,
+                                  actionLink("link_to_rat", "Browse Rat DRG Data")
+                             )
+                             ),
+                      column(width = 2,
+                             box(status = "primary", width = 12,
+                                 actionLink("link_to_human", "Browse iPSC Data")
+                             )),
+                      column(width = 2,
+                             box(status = "primary", width = 12,
+                                 actionLink("link_to_db", "Browse Diabetes Data")
+                             )),
+                      column(width = 2,
+                             box(status = "primary", width = 12,
+                                 actionLink("link_to_cts", "Browse CTS Data")
+                             )),
+                      column(width = 2,
+                             box(status = "primary", width = 12,
+                                 actionLink("link_to_zheng", "Browse Zheng Data")
+                             )),
+                      column(width = 2,
+                             box(status = "primary", width = 12,
+                                 actionLink("link_to_scrna", "Browse Spatial Seq Data")
+                             )),
+                      collapsible = TRUE),
+                 
                 ),
-                
                 fluidRow(
+                  br(),
                   column(3,offset = 0, 
                          actionButton("load", "Plot Graphs"), br()
                          ), 
@@ -256,11 +303,14 @@ ui = function(req) {fluidPage(
                   ),
                   box(width = 12,
                       title = "Naive",
+                      collapsible = TRUE,
                       status = "primary", 
-                      plotcombine_ui("dot")
+                      plotcombine_ui("dot"), 
+                      plothomescdot_ui("homespat")
                   ),
                   box(width = 12, 
                       title = "Differential Gene Analysis",
+                      collapsible = TRUE,
                       status = "primary",
                       deg_combine_ui("deg_plot"))
                 )
@@ -273,6 +323,7 @@ ui = function(req) {fluidPage(
                   box(title = "DRG subpopulation RNAseq",
                       width = 12,
                       status = "primary", 
+                      solidHeader = TRUE,
                       includeMarkdown("datasetsummary.md"),
                       img(src = "schematic.png", height = 150, width = 400), 
                   )
@@ -280,6 +331,7 @@ ui = function(req) {fluidPage(
                 
                 br(),
                 actionLink("link_to_home", "Back to Home", icon = icon("home")),
+                 
                 br(),br(),
                 actionButton("load2", "Plot Graphs"),
                 br(),br(),
@@ -297,7 +349,17 @@ ui = function(req) {fluidPage(
                       status = "primary", 
                          actionButton("volc", "Plot Volcano Graphs"),
                          selectInput("volca", "", 
-                                     choices = subpopulations,
+                                     choices = c(
+                                       "Nociceptors 3D",
+                                       "Nociceptors 4W",
+                                       "PEP 3D",
+                                       "PEP 4W", 
+                                       "NP 3D",
+                                       "NP 4W",
+                                       "C-LTMR 3D",
+                                       "C-LTMR 4W",
+                                       "Ad- AB-RA LTMRs 3D",
+                                       "Ad- AB-RA LTMRs 4W"),
                                      selected = ""),
                          volcano_plot_ui("volcano")
                   )
@@ -320,7 +382,17 @@ ui = function(req) {fluidPage(
                     title = "Differential Analysis Table", 
                     status = "primary", 
                     selectInput("contrast", "", 
-                                choices = subpopulations,
+                                choices = c(
+                                  "Nociceptors 3D",
+                                  "Nociceptors 4W",
+                                  "PEP 3D",
+                                  "PEP 4W", 
+                                  "NP 3D",
+                                  "NP 4W",
+                                  "C-LTMR 3D",
+                                  "C-LTMR 4W",
+                                  "Ad- AB-RA LTMRs 3D",
+                                  "Ad- AB-RA LTMRs 4W"),
                                 selected = ""), 
                     contrast_table_ui("contrast_table")
                   )
@@ -345,7 +417,7 @@ ui = function(req) {fluidPage(
                     title = "SHAM vs SNI", status = "primary", 
                     actionButton("volcmouse", "Plot Volcano Graphs"),
                     selectInput("volcamouse", "", 
-                                choices = c("B10D2_Mouse_SNI_vs_SHAM.csv", "BALBc_Mouse_SNI_vs_SHAM.csv"),
+                                choices = c("B10D2", "BALB"),
                                 selected = ""),
                     volcano_plot_ui("volcano_mouse")
                   )
@@ -363,7 +435,7 @@ ui = function(req) {fluidPage(
                       title = "Differential Analysis Table",
                       status = "primary",
                       selectInput("contrastm", "", 
-                                 choices = c("B10D2_Mouse_SNI_vs_SHAM.csv", "BALBc_Mouse_SNI_vs_SHAM.csv"),
+                                 choices = c("B10D2", "BALB"),
                                  selected = ""), 
                       contrast_table_ui("mouse_contrast_table")
                       
@@ -409,23 +481,51 @@ ui = function(req) {fluidPage(
         ),
         
         tabItem(tabName = "tabhuman", 
+                fluidRow(
+                  box(title = "iPSC RNAseq",
+                      status = "primary", 
+                      width=12,
+                      solidHeader = TRUE,
+                      column(width=9,
+                             # includeMarkdown("ipscsummary.md")
+                             ),
+                      column(width=3,
+                             img(src = "ipsc.jpeg", height = 320, width = 320))   
+                  )
+                ),
+                br(),
                 actionButton("load5", "Plot Graphs"), # action button 
                 actionLink("link_to_home4", "Back to Home", icon = icon("home")),
+                br(),br(),
                 fluidRow(
-                  box(title = "Naive", status = "primary", 
-                      plotdot_ui("dot_human", FALSE)
-                  ), 
-                  plotline_ui("human_line", "human")), 
+                  # can plot by cell-line or differentiation state, choose it 
+                  box(
+                    status="primary",
+                    title = "Naive",
+                    width = 6,
+                    tabsetPanel(
+                      tabPanel(
+                        title = "By Differentiation",
+                        plotdot_ui("dot_human", FALSE)
+                      ),
+                      tabPanel(
+                        title = "By Cell Line",
+                        plotdot_ui("dot_human2", FALSE)
+                      )  
+                    )
+                  ),
+                  plotline_ui("human_line", "human")
+                  ),
                 fluidRow(
                   box(width = 6, 
                       title = "Differential Gene Analysis",
                       status = "primary",
-                      deg_plot_ui("deg_plot_human")), 
-                  box(width = 6,
+                      deg_plot_ui("deg_plot_human")),
+                  box(
                     title = "Healthy vs HSN1", status = "primary", 
                     actionButton("volch", "Plot Volcano Graphs"),
                     selectInput("volcahuman", "", 
-                                choices = c("iPSCDN_young_HSN1_vs_healthy.csv", "iPSCDN_old_HSN1_vs_healthy.csv"),
+                                choices = c("iPSCDN_young", "iPSCDN_old"),
                                 selected = ""),
                     volcano_plot_ui("volcano_human")
                   )
@@ -437,23 +537,33 @@ ui = function(req) {fluidPage(
                     status = "primary",
                     goi_table_ui("goi_table_human")
                   )
-                ), 
+                ),
                 fluidRow(
                   box(
                     width = 12,
                     title = "Differential Analysis Table", 
                     status = "primary", 
                     selectInput("contrasth", "", 
-                                choices = c("iPSCDN_old_HSN1_vs_healthy.csv", "iPSCDN_young_HSN1_vs_healthy.csv"),
+                                choices = c("iPSCDN_young", "iPSCDN_old"),
                                 selected = ""), 
                     contrast_table_ui("contrast_table_human")
                   )
                 )
         ),
         
-        tabItem(tabName = "tabdb", 
+        tabItem(tabName = "tabdb",
+                fluidRow(
+                  box(title = "Human Diabetes RNAseq",
+                      status = "primary", 
+                      width=12,
+                      solidHeader = TRUE,
+                      # includeMarkdown("ipscsummary.md")
+                  )
+                ),
+                br(),
                 actionButton("load6", "Plot Graphs"), # action button 
                 actionLink("link_to_home5", "Back to Home", icon = icon("home")),
+                br(),br(),
                 fluidRow(
                   box(title = "Naive", status = "primary", 
                       plotdot_ui("dot_db", FALSE)
@@ -468,28 +578,21 @@ ui = function(req) {fluidPage(
                       title = "Painful vs Painless", status = "primary", 
                       actionButton("volcd", "Plot Volcano Graphs"),
                       selectInput("volcadb", "", 
-                                  choices = c("Diabetes_skin_painful_vs_painless.csv", "Diabetes_skin_painful_vs_painless_females.csv", 
-                                              "Diabetes_skin_painful_vs_painless_males.csv"),
+                                  choices = c("Diabetes_skin", "Diabetes_skin_females", 
+                                              "Diabetes_skin_males"),
                                   selected = ""),
                       volcano_plot_ui("volcano_db")
                   )
                 ), 
-                fluidRow(
-                  box(
-                    width = 12,
-                    title = "Result Table", 
-                    status = "primary",
-                    goi_table_ui("goi_table_db")
-                  )
-                ), 
+                 
                 fluidRow(
                   box(
                     width = 12,
                     title = "Differential Analysis Table", 
                     status = "primary", 
                     selectInput("contrastd", "", 
-                                choices = c("Diabetes_skin_painful_vs_painless.csv", "Diabetes_skin_painful_vs_painless_females.csv", 
-                                            "Diabetes_skin_painful_vs_painless_males.csv"),
+                                choices = c("Diabetes_skin", "Diabetes_skin_females", 
+                                            "Diabetes_skin_males"),
                                 selected = ""), 
                     contrast_table_ui("contrast_table_db")
                   )
@@ -497,8 +600,18 @@ ui = function(req) {fluidPage(
         ),
         
         tabItem(tabName = "tabcts", 
+                fluidRow(
+                  box(title = "Human Skin CTS RNAseq",
+                      status = "primary", 
+                      width=12,
+                      solidHeader = TRUE,
+                      # includeMarkdown("ipscsummary.md")
+                  )
+                ),
+                br(),
                 actionButton("load7", "Plot Graphs"), # action button 
                 actionLink("link_to_home6", "Back to Home", icon = icon("home")),
+                br(),br(),
                 fluidRow(
                   box(title = "Naive", status = "primary", 
                       plotdot_ui("dot_cts", FALSE)
@@ -516,20 +629,45 @@ ui = function(req) {fluidPage(
                   )
                 ), 
                 fluidRow(
-                  box(
-                    width = 12,
-                    title = "Result Table", 
-                    status = "primary",
-                    goi_table_ui("goi_table_cts")
-                  )
-                ), 
-                fluidRow(
                   box(width = 12, 
                       title = "Differential Analysis Table",
                       status = "primary",
                       DT::dataTableOutput("contrast_table_cts")
                   )
                 )
+        ),
+        
+        tabItem(tabName = "tabspat", 
+                actionButton("load8", "Plot Graphs"), 
+                actionLink("link_to_home7", "Back to Home", icon = icon("home")),
+                fluidRow(
+                  box(width=6, 
+                    title = "Naive", status = "primary", 
+                      plotscdot_ui("dotspat")
+                  ),
+                  box(width=6,
+                      title = "UMAP", status = "primary", 
+                      plotumap_ui("umapspat")
+                  )
+                ), 
+               
+                fluidRow(
+                  box(width=6,
+                      height = 550,
+                      title = "Feature", status = "primary", 
+                      column(width=2,br(),
+                             actionButton("load9", "Plot Graphs")),
+                      column(width=10,
+                             selectizeInput(
+                               inputId = "scgeneid", 
+                               label = "Search Genes:", 
+                               multiple = FALSE,
+                               choices = NULL
+                             )),
+                      plotfeature_ui("featurespat")
+                  )
+                )
+                
         ),
         
         ## Supply simple links for each paper + supplementary repository
